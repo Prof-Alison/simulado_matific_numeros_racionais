@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="doc-title">Simulado Matific - Jornada dos Racionais</title>
+    <!-- Biblioteca leve para geração direta de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 720px; width: 100%; margin-bottom: 20px; }
+        h1, h2, h3 { color: #2c3e50; text-align: center; margin-top: 0; }
+        
+        .level-badge { background-color: #f39c12; color: white; padding: 6px 15px; border-radius: 20px; font-weight: bold; display: inline-block; font-size: 14px; margin-bottom: 10px; }
+        .badge-box { text-align: center; }
+
+        .stage { display: none; }
+        .stage.active { display: block; }
+        
+        /* Barra de acertos */
+        .streak-bar { display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 15px; font-weight: bold; color: #2980b9; }
+        .dot { width: 14px; height: 14px; border-radius: 50%; background-color: #ddd; display: inline-block; transition: background 0.3s; }
+        .dot.active { background-color: #2ecc71; }
+        
+        /* Passarinhos Vetoriais (SVG) */
+        .wire-box { background: #e8f4f8; padding: 20px; border-radius: 8px; margin: 15px 0; position: relative; min-height: 100px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-align: center; }
+        .wire { background: #333; height: 4px; width: 100%; position: absolute; bottom: 25px; left: 0; z-index: 1; }
+        .birds-container { display: flex; justify-content: space-around; align-items: flex-end; position: relative; z-index: 2; padding: 0 10px; width: 100%; }
+        .bird-svg { width: 38px; height: 38px; transition: transform 0.2s; cursor: pointer; }
+        .bird-svg:hover { transform: scale(1.2); }
+        
+        .card-question { text-align: center; font-size: 18px; color: #2c3e50; margin-top: 15px; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 10; }
+        .inputs-container { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 15px 0; width: 100%; position: relative; z-index: 20; }
+        
+        /* FIX DE INPUTS: POSICIONAMENTO E DESTAQUE */
+        input[type="text"] { padding: 10px; font-size: 22px; border: 2px solid #3498db; border-radius: 8px; width: 110px; text-align: center; font-weight: bold; margin: 0 auto; outline: none; background-color: #ffffff; position: relative; z-index: 30; cursor: text; }
+        input[type="text"]:focus { border-color: #f39c12; box-shadow: 0 0 8px rgba(243, 156, 18, 0.6); background-color: #fffdf6; }
+        
+        /* Multiplicadores e Operadores */
+        .mult-btns { display: flex; justify-content: center; gap: 10px; margin: 15px 0; flex-wrap: wrap; }
+        .btn-mult, .btn-op { background-color: #3498db; color: white; padding: 10px 18px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.2s; }
+        .btn-mult:hover, .btn-op:hover { background-color: #2980b9; }
+        .btn-op.selected { background-color: #e67e22; transform: scale(1.1); }
+        
+        /* Reta Numérica Interativa */
+        .number-line-container { position: relative; width: 100%; height: 85px; margin: 25px 0 10px 0; background: #f8f9fa; border: 1px solid #ccc; border-radius: 8px; padding: 0 10px; z-index: 1; }
+        .number-line { position: absolute; top: 40px; left: 5%; right: 5%; height: 4px; background: #333; }
+        .tick-mark { position: absolute; top: 30px; width: 2px; height: 24px; background: #333; }
+        .tick-label { position: absolute; top: 56px; transform: translateX(-50%); font-size: 12px; font-weight: bold; color: #555; }
+        
+        .pointer { position: absolute; width: 22px; height: 22px; border-radius: 50%; transform: translateX(-50%); transition: left 0.1s; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.3); z-index: 3; }
+        .pointer-blue { background: #2980b9; top: 28px; }
+        .pointer-red { background: #c0392b; top: 15px; }
+
+        /* Controles dos Sliders */
+        .slider-box { background: #f1f8fc; border-radius: 8px; padding: 10px; margin: 10px 0; width: 100%; text-align: center; }
+        .slider-range { width: 90%; margin: 6px auto; display: block; cursor: pointer; }
+
+        button.main-btn { display: none; background-color: #2ecc71; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 15px; }
+        button.main-btn:hover { background-color: #27ae60; }
+        .feedback { text-align: center; font-weight: bold; margin-top: 12px; font-size: 16px; min-height: 24px; }
+
+        /* FIX DO CERTIFICADO: PROPORÇÃO EXATA A4 LANDSCAPE */
+        #cert-wrapper { width: 100%; display: flex; justify-content: center; }
+        #cert-page { display: none; background: white; padding: 30px 40px; border: 10px double #1e3c72; border-radius: 8px; width: 100%; max-width: 950px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.15); position: relative; margin: 0 auto; box-sizing: border-box; }
+        .cert-header { color: #1e3c72; font-size: 28px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px; }
+        .cert-subtitle { color: #d35400; font-size: 18px; font-weight: bold; margin-bottom: 15px; }
+        .cert-body { font-size: 18px; line-height: 1.5; color: #2c3e50; margin: 15px 0; }
+        .cert-name { font-size: 30px; font-weight: bold; color: #1e3c72; border-bottom: 3px solid #f1c40f; display: inline-block; padding: 0 20px 4px 20px; margin: 8px 0; text-transform: uppercase; }
+        
+        .cert-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; }
+        .seal { width: 90px; height: 90px; background: gold; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: #7f8c8d; font-size: 11px; text-align: center; border: 3px dashed #b7950b; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+        .sig-box { text-align: center; font-size: 14px; color: #333; }
+        .sig-line { width: 200px; height: 1px; background: #333; margin: 0 auto 5px auto; }
+
+        @page { size: A4 landscape; margin: 0; }
+
+        @media print {
+            body { background: white; padding: 0; margin: 0; }
+            .container, #welcome-screen { display: none !important; }
+            #cert-page { display: block !important; border: 8px double #1e3c72; box-shadow: none; width: 100vw; height: 100vh; max-width: none; border-radius: 0; box-sizing: border-box; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TELA INICIAL -->
+    <div id="welcome-screen" class="container">
+        <h1>🎮 Simulado Matific: Números Racionais</h1>
+        <p style="text-align: center; font-size: 16px; color: #555;">Bem-vindo à Jornada das Frações e Decimais! Digite seu nome para iniciar.</p>
+        
+        <div style="margin: 25px 0; text-align: center;">
+            <label style="font-weight: bold; font-size: 18px;">Nome do Estudante:</label><br><br>
+            <input type="text" id="student-name-input" placeholder="Digite seu nome completo..." style="width: 80%; max-width: 400px;">
+        </div>
+
+        <button class="btn-mult" style="width: 100%; padding: 15px; font-size: 18px; background-color: #2ecc71;" onclick="startJourney()">Começar a Jornada ➔</button>
+    </div>
+
+    <!-- TELA DO JOGO -->
+    <div id="game-screen" class="container" style="display: none;">
+        
+        <div class="badge-box">
+            <span id="level-badge" class="level-badge">Nível 1: Aprendiz dos Racionais</span>
+        </div>
+
+        <!-- FASE 1: PASSARINHOS NO FIO -->
+        <div id="stage1" class="stage active">
+            <h2 id="s1-title">Fase 1: Pássaros no Fio</h2>
+            <p style="text-align: center;">Escreva a fração correspondente. Acerte <strong>5 vezes seguidas</strong>!</p>
+            
+            <div class="streak-bar">
+                <span>Sequência:</span>
+                <div id="s1-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            </div>
+
+            <div class="wire-box">
+                <div class="birds-container" id="birds-display"></div>
+                <div class="wire"></div>
+            </div>
+
+            <div class="card-question">
+                Qual é a fração que representa os passarinhos <strong id="target-color-text" style="text-transform: uppercase;">...</strong>?
+                <div class="inputs-container">
+                    <input type="text" inputmode="numeric" id="num1" placeholder="Num" oninput="checkInputsS1()">
+                    <span style="font-size: 22px; font-weight: bold;">/</span>
+                    <input type="text" inputmode="numeric" id="den1" placeholder="Den" oninput="checkInputsS1()">
+                </div>
+            </div>
+            
+            <button id="btn-s1" class="main-btn" onclick="checkStage1()">Verificar Resposta ➔</button>
+            <div id="fb1" class="feedback"></div>
+        </div>
+
+        <!-- FASE 2: CONVERSÃO -->
+        <div id="stage2" class="stage">
+            <h2>Fase 2: Conversão de Fração para Decimal</h2>
+            <p style="text-align: center;">Converta a fração decimal. Acerte <strong>5 vezes seguidas</strong>!</p>
+
+            <div class="streak-bar">
+                <span>Sequência:</span>
+                <div id="s2-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            </div>
+
+            <div class="wire-box">
+                Fração: <strong id="f2-fraction-text" style="font-size: 26px;">3/10</strong> <br><br>
+                Forma Decimal:
+                <div class="inputs-container">
+                    <input type="text" inputmode="decimal" id="dec2" placeholder="0.3" oninput="checkInputsS2()">
+                </div>
+            </div>
+
+            <button id="btn-s2" class="main-btn" onclick="checkStage2()">Verificar Resposta ➔</button>
+            <div id="fb2" class="feedback"></div>
+        </div>
+
+        <!-- FASE 3: BASE 10 E RETA NUMÉRICA -->
+        <div id="stage3" class="stage">
+            <h2>Fase 3: Frações e Reta Numérica</h2>
+            <p style="text-align: center;">Transforme a fração e encontre sua posição na reta. Acerte <strong>5 vezes seguidas</strong>!</p>
+
+            <div class="streak-bar">
+                <span>Sequência:</span>
+                <div id="s3-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            </div>
+
+            <div class="wire-box" style="font-size: 20px;">
+                Fração Original: <strong id="f3-original-fraction" style="font-size: 24px; color: #d35400;">1/2</strong><br>
+                <span style="font-size: 15px;">Multiplique para obter base 10 ou 100:</span>
+                
+                <div class="mult-btns" id="mult-btns-box">
+                    <button class="btn-mult" onclick="applyMultiplier(2)">×2</button>
+                    <button class="btn-mult" onclick="applyMultiplier(5)">×5</button>
+                    <button class="btn-mult" onclick="applyMultiplier(20)">×20</button>
+                    <button class="btn-mult" onclick="applyMultiplier(25)">×25</button>
+                </div>
+
+                <div>Fração Equivalente: <strong id="f3-equiv-fraction">? / ?</strong></div>
+            </div>
+
+            <div class="card-question">
+                Valor Decimal:
+                <div class="inputs-container">
+                    <input type="text" inputmode="decimal" id="dec3-user" placeholder="0.0" oninput="checkInputsS3()">
+                </div>
+            </div>
+
+            <div class="number-line-container">
+                <div class="number-line"></div>
+                <div class="tick-mark" style="left: 5%;"></div><div class="tick-label" style="left: 5%;">0</div>
+                <div class="tick-mark" style="left: 27.5%;"></div><div class="tick-label" style="left: 27.5%;">0.25</div>
+                <div class="tick-mark" style="left: 50%;"></div><div class="tick-label" style="left: 50%;">0.5</div>
+                <div class="tick-mark" style="left: 72.5%;"></div><div class="tick-label" style="left: 72.5%;">0.75</div>
+                <div class="tick-mark" style="left: 95%;"></div><div class="tick-label" style="left: 95%;">1.0</div>
+
+                <div class="pointer pointer-blue" id="line-pointer" style="left: 5%;"></div>
+            </div>
+
+            <button id="btn-s3" class="main-btn" onclick="checkStage3()">Confirmar e Avançar ➔</button>
+            <div id="fb3" class="feedback"></div>
+        </div>
+
+        <!-- NÍVEL 3 - FASE 1: COMPARAÇÃO -->
+        <div id="stage3-1" class="stage">
+            <h2>Nível 3: Comparação de Frações na Reta</h2>
+            <p style="text-align: center;">Posicione os marcadores azul e vermelho na reta e compare as duas frações!</p>
+            
+            <div class="streak-bar">
+                <span>Sequência:</span>
+                <div id="s31-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            </div>
+
+            <div class="wire-box" style="font-size: 20px;">
+                <span style="color:#2980b9; font-weight:bold;">1ª Fração (Azul): <span id="cmp-frac1-text">1/2</span></span> &nbsp;|&nbsp; 
+                <span style="color:#c0392b; font-weight:bold;">2ª Fração (Vermelha): <span id="cmp-frac2-text">3/4</span></span>
+            </div>
+
+            <div class="number-line-container">
+                <div class="number-line"></div>
+                <div class="tick-mark" style="left: 5%;"></div><div class="tick-label" style="left: 5%;">0</div>
+                <div class="tick-mark" style="left: 27.5%;"></div><div class="tick-label" style="left: 27.5%;">0.25</div>
+                <div class="tick-mark" style="left: 50%;"></div><div class="tick-label" style="left: 50%;">0.50</div>
+                <div class="tick-mark" style="left: 72.5%;"></div><div class="tick-label" style="left: 72.5%;">0.75</div>
+                <div class="tick-mark" style="left: 95%;"></div><div class="tick-label" style="left: 95%;">1.00</div>
+
+                <div class="pointer pointer-blue" id="ptr-cmp-blue" style="left: 5%;"></div>
+                <div class="pointer pointer-red" id="ptr-cmp-red" style="left: 5%;"></div>
+            </div>
+
+            <div class="slider-box">
+                <span style="color:#2980b9; font-weight:bold;">🔵 Posicionar 1ª Fração (<span id="f1-label">1/2</span>): </span>
+                <span id="slider-blue-val" style="font-weight:bold; color:#2980b9;">0.00</span>
+                <input type="range" min="0" max="1" step="0.05" value="0" class="slider-range" id="slider-blue" oninput="updateBlueSlider(this.value)">
+            </div>
+
+            <div class="slider-box">
+                <span style="color:#c0392b; font-weight:bold;">🔴 Posicionar 2ª Fração (<span id="f2-label">3/4</span>): </span>
+                <span id="slider-red-val" style="font-weight:bold; color:#c0392b;">0.00</span>
+                <input type="range" min="0" max="1" step="0.05" value="0" class="slider-range" id="slider-red" oninput="updateRedSlider(this.value)">
+            </div>
+
+            <div class="card-question">
+                Escolha o símbolo correto (<span id="symbol-q-text">1/2 ___ 3/4</span>):
+                <div class="mult-btns" style="margin-top: 10px;">
+                    <button class="btn-op" onclick="selectOp('<')">&lt; (Menor)</button>
+                    <button class="btn-op" onclick="selectOp('=')">= (Igual)</button>
+                    <button class="btn-op" onclick="selectOp('>')">&gt; (Maior)</button>
+                </div>
+            </div>
+
+            <button id="btn-s31" class="main-btn" onclick="checkStage31()">Verificar Comparação ➔</button>
+            <div id="fb31" class="feedback"></div>
+        </div>
+
+        <!-- NÍVEL 3 - FASE 2: PROBLEMAS -->
+        <div id="stage3-2" class="stage">
+            <h2>Nível 3: Problemas do Cotidiano</h2>
+            <p style="text-align: center;">Calcule a operação com decimais. Acerte <strong>5 vezes seguidas</strong>!</p>
+            
+            <div class="streak-bar">
+                <span>Sequência:</span>
+                <div id="s32-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            </div>
+
+            <div class="wire-box" style="font-size: 20px;" id="problem-text">
+                Carregando problema...
+            </div>
+
+            <div class="card-question">
+                Resultado Decimal:
+                <div class="inputs-container">
+                    <input type="text" inputmode="decimal" id="dec32-user" placeholder="0.00" oninput="checkInputsS32()">
+                </div>
+            </div>
+
+            <button id="btn-s32" class="main-btn" onclick="checkStage32()">Verificar Resposta ➔</button>
+            <div id="fb32" class="feedback"></div>
+        </div>
+
+    </div>
+
+    <!-- CONTAINER DO CERTIFICADO FORMATADO -->
+    <div id="cert-wrapper">
+        <div id="cert-page">
+            <div class="cert-header">Certificado de Conquista</div>
+            <div class="cert-subtitle">🏆 MESTRE DOS NÚMEROS RACIONAIS</div>
+            
+            <div class="cert-body">
+                Certificamos que o(a) estudante<br>
+                <div class="cert-name" id="cert-student-name">NOME DO ALUNO</div><br>
+                concluiu com excelência todos os níveis do <strong>Simulado Matific: Números Racionais</strong>, demonstrando domínio na conversão de frações em decimais, ordenação na reta numérica e resolução de problemas cotidianos.
+            </div>
+
+            <div style="font-size: 14px; color: #555; margin-top: 10px;">
+                <strong>Componente Curricular:</strong> Matemática | <strong>Habilidade:</strong> EF06MA08
+            </div>
+
+            <div class="cert-footer">
+                <div class="seal">100%<br>CONCLUÍDO<br>EXCELÊNCIA</div>
+
+                <div class="sig-box">
+                    <div class="sig-line"></div>
+                    <strong>Prof. Alison Henrique dos Santos</strong><br>
+                    Docente de Matemática
+                </div>
+
+                <div style="text-align: right; font-size: 13px; color: #555;">
+                    <strong>Emissão:</strong> <span id="cert-date"></span><br>
+                    NRE Ponta Grossa
+                </div>
+            </div>
+
+            <div class="no-print" style="margin-top: 25px;">
+                <button class="btn-mult" style="background-color: #27ae60; padding: 12px 25px;" onclick="downloadPDF()">📥 Baixar PDF com Nome</button>
+                <button class="btn-mult" style="background-color: #2980b9; padding: 12px 25px;" onclick="window.print()">🖨️ Imprimir Certificado</button>
+                <button class="btn-mult" style="background-color: #7f8c8d; padding: 12px 25px;" onclick="location.reload()">🔄 Reiniciar Desafio</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getBirdSVG(colorHex) {
+            return `<svg class="bird-svg" viewBox="0 0 64 64">
+                <path d="M12,40 C12,20 28,8 44,12 C52,14 58,22 56,32 C54,42 42,50 28,48 C18,47 12,40 12,40 Z" fill="${colorHex}"/>
+                <circle cx="44" cy="20" r="4" fill="#ffffff"/>
+                <circle cx="45" cy="20" r="2" fill="#000000"/>
+                <polygon points="54,24 62,26 54,30" fill="#f39c12"/>
+                <path d="M20,40 C10,42 4,36 2,30 C10,32 18,36 20,40 Z" fill="${colorHex}" filter="brightness(0.8)"/>
+                <path d="M28,48 L26,58 M36,47 L36,58" stroke="#d35400" stroke-width="3" stroke-linecap="round"/>
+            </svg>`;
+        }
+
+        const COLOR_MAP = {
+            'amarelos': '#f1c40f',
+            'azuis': '#3498db',
+            'vermelhos': '#e74c3c',
+            'verdes': '#2ecc71'
+        };
+
+        let studentName = "";
+        let formattedFileName = "";
+        let currentLevel = 1;
+        let streak1 = 0, streak2 = 0, streak3 = 0, streak31 = 0, streak32 = 0;
+        let currentS1 = {}, currentS2 = {}, currentS3 = {}, currentS31 = {}, currentS32 = {};
+        let selectedOpSymbol = "";
+
+        let deckS2 = [], deckS3 = [], deckS31 = [], deckS32 = [];
+
+        function shuffle(arr) {
+            let a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function startJourney() {
+            const nameInput = document.getElementById('student-name-input').value.trim();
+            if (nameInput === "") {
+                alert("Por favor, digite seu nome para continuar!");
+                return;
+            }
+            studentName = nameInput;
+            formattedFileName = studentName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, '_');
+            document.title = formattedFileName;
+            
+            document.getElementById('welcome-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            initStage1Question();
+        }
+
+        function updateDots(dotsId, streak) {
+            const dots = document.querySelectorAll('#' + dotsId + ' .dot');
+            dots.forEach((dot, idx) => {
+                if (idx < streak) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+        }
+
+        function setLevelBadge(txt) {
+            document.getElementById('level-badge').innerText = txt;
+        }
+
+        // --- FASE 1 ---
+        function checkInputsS1() {
+            const n = document.getElementById('num1').value.trim();
+            const d = document.getElementById('den1').value.trim();
+            document.getElementById('btn-s1').style.display = (n !== '' && d !== '') ? 'block' : 'none';
+        }
+
+        let s1LastCount = -1;
+        function initStage1Question() {
+            const container = document.getElementById('birds-display');
+            container.innerHTML = '';
+
+            const total = 10;
+            let birdList = [];
+            let countA;
+
+            do {
+                countA = Math.floor(Math.random() * 7) + 2; 
+            } while (countA === s1LastCount);
+            s1LastCount = countA;
+
+            if (currentLevel === 1) {
+                setLevelBadge("Nível 1: Aprendiz dos Racionais");
+                const countB = total - countA;
+                const askA = Math.random() < 0.5;
+
+                const colorName = askA ? 'amarelos' : 'azuis';
+                currentS1 = { correctNum: askA ? countA : countB, correctDen: 10, askColor: colorName };
+
+                for(let i=0; i<countA; i++) birdList.push(COLOR_MAP['amarelos']);
+                for(let i=0; i<countB; i++) birdList.push(COLOR_MAP['azuis']);
+
+            } else if (currentLevel === 2) {
+                setLevelBadge("Nível 2: Explorador dos Racionais");
+                const countYellow = Math.floor(Math.random() * 3) + 2;
+                const countBlue = Math.floor(Math.random() * 3) + 2;
+                const countRed = total - countYellow - countBlue;
+
+                const askCombination = Math.random() < 0.5;
+                if (askCombination) {
+                    currentS1 = { correctNum: countBlue + countRed, correctDen: 10, askColor: 'azuis OU vermelhos juntos' };
+                } else {
+                    currentS1 = { correctNum: countYellow + countBlue, correctDen: 10, askColor: 'amarelos OU azuis juntos' };
+                }
+
+                for(let i=0; i<countYellow; i++) birdList.push(COLOR_MAP['amarelos']);
+                for(let i=0; i<countBlue; i++) birdList.push(COLOR_MAP['azuis']);
+                for(let i=0; i<countRed; i++) birdList.push(COLOR_MAP['vermelhos']);
+            }
+
+            birdList.sort(() => Math.random() - 0.5);
+            birdList.forEach(colorHex => { container.innerHTML += getBirdSVG(colorHex); });
+
+            document.getElementById('target-color-text').innerText = currentS1.askColor;
+            document.getElementById('num1').value = '';
+            document.getElementById('den1').value = '';
+            document.getElementById('btn-s1').style.display = 'none';
+            document.getElementById('fb1').innerText = '';
+        }
+
+        function checkStage1() {
+            const num = parseInt(document.getElementById('num1').value);
+            const den = parseInt(document.getElementById('den1').value);
+
+            if (num === currentS1.correctNum && den === currentS1.correctDen) {
+                streak1++;
+                updateDots('s1-dots', streak1);
+                document.getElementById('fb1').style.color = '#27ae60';
+                document.getElementById('fb1').innerText = `Correto! (${streak1}/5 acertos)`;
+                
+                if (streak1 >= 5) {
+                    setTimeout(() => {
+                        document.getElementById('stage1').classList.remove('active');
+                        document.getElementById('stage2').classList.add('active');
+                        initStage2Question();
+                    }, 1200);
+                } else {
+                    setTimeout(initStage1Question, 1000);
+                }
+            } else {
+                streak1 = 0;
+                updateDots('s1-dots', streak1);
+                document.getElementById('fb1').style.color = '#c0392b';
+                document.getElementById('fb1').innerText = `Incorreto! Sequência reiniciada. Resposta: ${currentS1.correctNum}/${currentS1.correctDen}`;
+                setTimeout(initStage1Question, 2000);
+            }
+        }
+
+        // --- FASE 2 ---
+        function checkInputsS2() {
+            const v = document.getElementById('dec2').value.trim();
+            document.getElementById('btn-s2').style.display = (v !== '') ? 'block' : 'none';
+        }
+
+        function initStage2Question() {
+            if (deckS2.length === 0) {
+                let basePool = [];
+                if (currentLevel === 1) {
+                    for(let i=1; i<=9; i++) basePool.push({ num: i, den: 10, correctDec: (i/10).toFixed(1) });
+                } else {
+                    const nums = [12, 25, 35, 48, 50, 64, 75, 80, 95];
+                    nums.forEach(n => basePool.push({ num: n, den: 100, correctDec: (n/100).toFixed(2) }));
+                }
+                deckS2 = shuffle(basePool);
+            }
+
+            currentS2 = deckS2.pop();
+
+            document.getElementById('f2-fraction-text').innerText = `${currentS2.num}/${currentS2.den}`;
+            document.getElementById('dec2').value = '';
+            document.getElementById('btn-s2').style.display = 'none';
+            document.getElementById('fb2').innerText = '';
+        }
+
+        function checkStage2() {
+            let val = document.getElementById('dec2').value.trim().replace(',', '.');
+            
+            if (parseFloat(val) === parseFloat(currentS2.correctDec)) {
+                streak2++;
+                updateDots('s2-dots', streak2);
+                document.getElementById('fb2').style.color = '#27ae60';
+                document.getElementById('fb2').innerText = `Correto! (${streak2}/5 acertos)`;
+
+                if (streak2 >= 5) {
+                    setTimeout(() => {
+                        document.getElementById('stage2').classList.remove('active');
+                        document.getElementById('stage3').classList.add('active');
+                        initStage3Question();
+                    }, 1200);
+                } else {
+                    setTimeout(initStage2Question, 1000);
+                }
+            } else {
+                streak2 = 0;
+                updateDots('s2-dots', streak2);
+                document.getElementById('fb2').style.color = '#c0392b';
+                document.getElementById('fb2').innerText = `Incorreto! Sequência reiniciada. Resposta: ${currentS2.correctDec}`;
+                setTimeout(initStage2Question, 2000);
+            }
+        }
+
+        // --- FASE 3 ---
+        const level1Fractions = [
+            { num: 1, den: 2, dec: 0.5 },
+            { num: 1, den: 4, dec: 0.25 },
+            { num: 3, den: 4, dec: 0.75 },
+            { num: 2, den: 4, dec: 0.5 },
+            { num: 4, den: 4, dec: 1.0 }
+        ];
+
+        const level2Fractions = [
+            { num: 2, den: 5, dec: 0.4 },
+            { num: 4, den: 5, dec: 0.8 },
+            { num: 3, den: 20, dec: 0.15 },
+            { num: 12, den: 50, dec: 0.24 },
+            { num: 1, den: 5, dec: 0.2 },
+            { num: 7, den: 20, dec: 0.35 }
+        ];
+
+        function checkInputsS3() {
+            const v = document.getElementById('dec3-user').value.trim();
+            let val = parseFloat(v.replace(',', '.'));
+            
+            if (!isNaN(val) && val >= 0 && val <= 1) {
+                let posPercent = 5 + (val * 90);
+                document.getElementById('line-pointer').style.left = posPercent + '%';
+            }
+            document.getElementById('btn-s3').style.display = (v !== '') ? 'block' : 'none';
+        }
+
+        function initStage3Question() {
+            if (deckS3.length === 0) {
+                const pool = (currentLevel === 1) ? level1Fractions : level2Fractions;
+                deckS3 = shuffle(pool);
+            }
+
+            const item = deckS3.pop();
+            currentS3 = { ...item, currentNum: item.num, currentDen: item.den };
+
+            document.getElementById('f3-original-fraction').innerText = `${item.num}/${item.den}`;
+            document.getElementById('f3-equiv-fraction').innerText = `${item.num} / ${item.den}`;
+            document.getElementById('dec3-user').value = '';
+            document.getElementById('btn-s3').style.display = 'none';
+            document.getElementById('line-pointer').style.left = '5%';
+            document.getElementById('fb3').innerText = '';
+        }
+
+        function applyMultiplier(mult) {
+            currentS3.currentNum = currentS3.num * mult;
+            currentS3.currentDen = currentS3.den * mult;
+            document.getElementById('f3-equiv-fraction').innerText = `${currentS3.currentNum} / ${currentS3.currentDen}`;
+        }
+
+        function checkStage3() {
+            let val = parseFloat(document.getElementById('dec3-user').value.trim().replace(',', '.'));
+
+            if (currentS3.currentDen !== 10 && currentS3.currentDen !== 100) {
+                document.getElementById('fb3').style.color = '#c0392b';
+                document.getElementById('fb3').innerText = 'Use os botões para obter base 10 ou 100 primeiro!';
+                return;
+            }
+
+            if (val === currentS3.dec) {
+                streak3++;
+                updateDots('s3-dots', streak3);
+                document.getElementById('fb3').style.color = '#27ae60';
+                document.getElementById('fb3').innerText = `Correto! (${streak3}/5 acertos)`;
+
+                if (streak3 >= 5) {
+                    if (currentLevel === 1) {
+                        currentLevel = 2;
+                        streak1 = streak2 = streak3 = 0;
+                        deckS2 = []; deckS3 = [];
+                        updateDots('s1-dots', 0); updateDots('s2-dots', 0); updateDots('s3-dots', 0);
+                        alert("🎉 Parabéns! Você concluiu o Nível 1 e avançou para o NÍVEL 2: EXPLORADOR DOS RACIONAIS!");
+                        setTimeout(() => {
+                            document.getElementById('stage3').classList.remove('active');
+                            document.getElementById('stage1').classList.add('active');
+                            initStage1Question();
+                        }, 1000);
+                    } else if (currentLevel === 2) {
+                        currentLevel = 3;
+                        streak31 = 0;
+                        updateDots('s31-dots', 0);
+                        alert("🚀 Incrível! Você concluiu o Nível 2 e avançou para o NÍVEL 3: MESTRE DOS RACIONAIS!");
+                        setTimeout(() => {
+                            document.getElementById('stage3').classList.remove('active');
+                            document.getElementById('stage3-1').classList.add('active');
+                            initStage31Question();
+                        }, 1000);
+                    }
+                } else {
+                    setTimeout(initStage3Question, 1200);
+                }
+            } else {
+                streak3 = 0;
+                updateDots('s3-dots', streak3);
+                document.getElementById('fb3').style.color = '#c0392b';
+                document.getElementById('fb3').innerText = `Incorreto! Sequência reiniciada. Resposta: ${currentS3.dec}`;
+                setTimeout(initStage3Question, 2000);
+            }
+        }
+
+        // --- NÍVEL 3 / FASE 1 ---
+        const fractionPairs = [
+            { f1Txt: "1/2", f1Val: 0.50, f2Txt: "3/4", f2Val: 0.75, symbol: '<' },
+            { f1Txt: "4/5", f1Val: 0.80, f2Txt: "1/2", f2Val: 0.50, symbol: '>' },
+            { f1Txt: "1/4", f1Val: 0.25, f2Txt: "3/5", f2Val: 0.60, symbol: '<' },
+            { f1Txt: "2/4", f1Val: 0.50, f2Txt: "1/2", f2Val: 0.50, symbol: '=' },
+            { f1Txt: "9/10", f1Val: 0.90, f2Txt: "7/20", f2Val: 0.35, symbol: '>' },
+            { f1Txt: "3/4", f1Val: 0.75, f2Txt: "15/20", f2Val: 0.75, symbol: '=' }
+        ];
+
+        function updateBlueSlider(val) {
+            let floatVal = parseFloat(val);
+            document.getElementById('slider-blue-val').innerText = floatVal.toFixed(2);
+            let posPercent = 5 + (floatVal * 90);
+            document.getElementById('ptr-cmp-blue').style.left = posPercent + '%';
+        }
+
+        function updateRedSlider(val) {
+            let floatVal = parseFloat(val);
+            document.getElementById('slider-red-val').innerText = floatVal.toFixed(2);
+            let posPercent = 5 + (floatVal * 90);
+            document.getElementById('ptr-cmp-red').style.left = posPercent + '%';
+        }
+
+        function initStage31Question() {
+            setLevelBadge("Nível 3: Mestre dos Racionais");
+            
+            if (deckS31.length === 0) {
+                deckS31 = shuffle(fractionPairs);
+            }
+
+            currentS31 = deckS31.pop();
+            
+            document.getElementById('cmp-frac1-text').innerText = currentS31.f1Txt;
+            document.getElementById('cmp-frac2-text').innerText = currentS31.f2Txt;
+            document.getElementById('f1-label').innerText = currentS31.f1Txt;
+            document.getElementById('f2-label').innerText = currentS31.f2Txt;
+            document.getElementById('symbol-q-text').innerText = `${currentS31.f1Txt} ___ ${currentS31.f2Txt}`;
+
+            document.getElementById('slider-blue').value = 0;
+            document.getElementById('slider-red').value = 0;
+            updateBlueSlider(0);
+            updateRedSlider(0);
+
+            selectedOpSymbol = "";
+            document.querySelectorAll('.btn-op').forEach(b => b.classList.remove('selected'));
+            document.getElementById('btn-s31').style.display = 'none';
+            document.getElementById('fb31').innerText = '';
+        }
+
+        function selectOp(sym) {
+            selectedOpSymbol = sym;
+            document.querySelectorAll('.btn-op').forEach(b => b.classList.remove('selected'));
+            event.target.classList.add('selected');
+            document.getElementById('btn-s31').style.display = 'block';
+        }
+
+        function checkStage31() {
+            let userBlueVal = parseFloat(document.getElementById('slider-blue').value);
+            let userRedVal = parseFloat(document.getElementById('slider-red').value);
+
+            if (Math.abs(userBlueVal - currentS31.f1Val) > 0.06) {
+                document.getElementById('fb31').style.color = '#c0392b';
+                document.getElementById('fb31').innerText = `Ajuste o marcador azul na posição decimal correta da 1ª fração (${currentS31.f1Txt} = ${currentS31.f1Val.toFixed(2)})!`;
+                return;
+            }
+
+            if (Math.abs(userRedVal - currentS31.f2Val) > 0.06) {
+                document.getElementById('fb31').style.color = '#c0392b';
+                document.getElementById('fb31').innerText = `Ajuste o marcador vermelho na posição decimal correta da 2ª fração (${currentS31.f2Txt} = ${currentS31.f2Val.toFixed(2)})!`;
+                return;
+            }
+
+            if (selectedOpSymbol === currentS31.symbol) {
+                streak31++;
+                updateDots('s31-dots', streak31);
+                document.getElementById('fb31').style.color = '#27ae60';
+                document.getElementById('fb31').innerText = `Correto! (${streak31}/5 acertos)`;
+
+                if (streak31 >= 5) {
+                    setTimeout(() => {
+                        document.getElementById('stage3-1').classList.remove('active');
+                        document.getElementById('stage3-2').classList.add('active');
+                        initStage32Question();
+                    }, 1200);
+                } else {
+                    setTimeout(initStage31Question, 1000);
+                }
+            } else {
+                streak31 = 0;
+                updateDots('s31-dots', streak31);
+                document.getElementById('fb31').style.color = '#c0392b';
+                document.getElementById('fb31').innerText = `Incorreto! Sequência reiniciada. O símbolo certo é "${currentS31.symbol}".`;
+                setTimeout(initStage31Question, 2000);
+            }
+        }
+
+        // --- NÍVEL 3 / FASE 2 ---
+        const problems = [
+            { text: "Você tinha R\$ 5,00 e gastou R\$ 2,50 em um lanche. Quanto sobrou em decimal?", ans: 2.50 },
+            { text: "Uma fita tem 1,00 metro. Se cortarmos 0,25 metros, quanto sobra de fita?", ans: 0.75 },
+            { text: "Sua mãe comprou 0,5 kg de maçã e 0,4 kg de banana. Quantos kg de fruta ela comprou no total?", ans: 0.90 },
+            { text: "Você tinha uma barra de chocolate de 1,00kg e comeu 0,30kg. Quanto sobrou em decimal?", ans: 0.70 },
+            { text: "Um suco custa R\$ 3,25 e um salgado R\$ 4,50. Quanto custam os dois juntos?", ans: 7.75 },
+            { text: "Tinha R\$ 10,00 e paguei R\$ 6,50 no bilhete do ônibus. Quanto recebi de troco?", ans: 3.50 }
+        ];
+
+        function checkInputsS32() {
+            const v = document.getElementById('dec32-user').value.trim();
+            document.getElementById('btn-s32').style.display = (v !== '') ? 'block' : 'none';
+        }
+
+        function initStage32Question() {
+            if (deckS32.length === 0) {
+                deckS32 = shuffle(problems);
+            }
+
+            currentS32 = deckS32.pop();
+            document.getElementById('problem-text').innerText = currentS32.text;
+            document.getElementById('dec32-user').value = '';
+            document.getElementById('btn-s32').style.display = 'none';
+            document.getElementById('fb32').innerText = '';
+        }
+
+        function checkStage32() {
+            let val = parseFloat(document.getElementById('dec32-user').value.trim().replace(',', '.'));
+
+            if (val === currentS32.ans) {
+                streak32++;
+                updateDots('s32-dots', streak32);
+                document.getElementById('fb32').style.color = '#27ae60';
+                document.getElementById('fb32').innerText = `Correto! (${streak32}/5 acertos)`;
+
+                if (streak32 >= 5) {
+                    showCertificate();
+                } else {
+                    setTimeout(initStage32Question, 1200);
+                }
+            } else {
+                streak32 = 0;
+                updateDots('s32-dots', streak32);
+                document.getElementById('fb32').style.color = '#c0392b';
+                document.getElementById('fb32').innerText = `Incorreto! Sequência reiniciada. Resposta: ${currentS32.ans.toFixed(2)}`;
+                setTimeout(initStage32Question, 2000);
+            }
+        }
+
+        // --- CERTIFICADO ---
+        function showCertificate() {
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('cert-page').style.display = 'block';
+            
+            document.getElementById('cert-student-name').innerText = studentName;
+            
+            const today = new Date();
+            const dateStr = today.getDate().toString().padStart(2, '0') + '/' + 
+                            (today.getMonth() + 1).toString().padStart(2, '0') + '/' + 
+                            today.getFullYear();
+            document.getElementById('cert-date').innerText = dateStr;
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('cert-page');
+            const noPrintBtns = document.querySelector('.no-print');
+            
+            noPrintBtns.style.display = 'none';
+
+            const opt = {
+                margin:       0,
+                filename:     `${formattedFileName}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                noPrintBtns.style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>
